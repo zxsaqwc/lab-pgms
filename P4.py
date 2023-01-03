@@ -1,54 +1,46 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
-# import necessary libraries
 import pandas as pd
-from sklearn import tree
-from sklearn.preprocessing import LabelEncoder
-from sklearn.naive_bayes import GaussianNB
+from pprint import pprint
+from sklearn.feature_selection import mutual_info_classif
+from collections import Counter
 
-# Load Data from CSV
-data = pd.read_csv('tennisdata.csv')
-print("The first 5 Values of data is :\n", data.head())
+def id3(df, target_attribute, attribute_names, default_class=None):
+    cnt=Counter(x for x in df[target_attribute])
+    if len(cnt)==1:
+        return next(iter(cnt))
+    
+    elif df.empty or (not attribute_names):
+         return default_class
 
-# obtain train data and train output
-X = data.iloc[:, :-1]
-print("\nThe First 5 values of the train data is\n", X.head())
+    else:
+        gainz = mutual_info_classif(df[attribute_names],df[target_attribute],discrete_features=True)
+        index_of_max=gainz.tolist().index(max(gainz))
+        best_attr=attribute_names[index_of_max]
+        tree={best_attr:{}}
+        remaining_attribute_names=[i for i in attribute_names if i!=best_attr]
+        
+        for attr_val, data_subset in df.groupby(best_attr):
+            subtree=id3(data_subset, target_attribute, remaining_attribute_names,default_class)
+            tree[best_attr][attr_val]=subtree
+        
+        return tree
+df=pd.read_csv("p-tennis.csv")
 
-y = data.iloc[:, -1]
-print("\nThe First 5 values of train output is\n", y.head())
+attribute_names=df.columns.tolist()
+print("List of attribut name")
 
-# convert them in numbers
-le_outlook = LabelEncoder()
-X.Outlook = le_outlook.fit_transform(X.Outlook)
+attribute_names.remove("PlayTennis")
 
-le_Temperature = LabelEncoder()
-X.Temperature = le_Temperature.fit_transform(X.Temperature)
+for colname in df.select_dtypes("object"):
+    df[colname], _ = df[colname].factorize()
+    
+print(df)
 
-le_Humidity = LabelEncoder()
-X.Humidity = le_Humidity.fit_transform(X.Humidity)
-
-le_Windy = LabelEncoder()
-X.Windy = le_Windy.fit_transform(X.Windy)
-
-print("\nNow the Train output is\n", X.head())
-
-le_PlayTennis = LabelEncoder()
-y = le_PlayTennis.fit_transform(y)
-print("\nNow the Train output is\n",y)
-
-from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.20)
-
-classifier = GaussianNB()
-classifier.fit(X_train, y_train)
-
-from sklearn.metrics import accuracy_score
-print("Accuracy is:", accuracy_score(classifier.predict(X_test), y_test))
-
+tree= id3(df,"PlayTennis", attribute_names)
+print("The tree structure")
+pprint(tree)
 
 # In[ ]:
 
